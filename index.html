@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Audit An Toàn Điện v3.0</title>
+  <title>Audit An Toàn Điện v3.1</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     :root { --primary: #2980b9; --bg: #f5f7fa; --text: #333; }
@@ -12,10 +12,9 @@
     .btn-excel { background: #27ae60 !important; flex: 1; }
     
     table { width: 100%; border-collapse: collapse; background: #fff; display: table; }
-    th, td { padding: 10px; border: 1px solid #ddd; font-size: 14px; }
+    th, td { padding: 10px; border: 1px solid #ddd; font-size: 14px; vertical-align: middle; }
     th { background: #2c3e50; color: white; position: sticky; top: 0; }
 
-    /* Quản lý ảnh trong Modal */
     .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 15px 0; }
     .photo-item { position: relative; border: 1px solid #ddd; border-radius: 5px; height: 80px; }
     .photo-item img { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; }
@@ -26,7 +25,8 @@
     .input-text { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; }
     .btn { padding: 10px 15px; border: none; border-radius: 5px; color: white; background: var(--primary); cursor: pointer; font-weight: bold; }
     
-    .img-preview { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; margin: 2px; cursor: pointer; border: 1px solid #eee; }
+    .img-preview { width: 50px; height: 50px; object-fit: cover; border-radius: 4px; margin: 2px; cursor: pointer; border: 1px solid #eee; transition: transform 0.2s;}
+    .img-preview:hover { transform: scale(1.1); }
     
     @media (max-width: 768px) { table { display: none; } .card-container { display: block; } }
     .card-container { display: none; }
@@ -35,20 +35,20 @@
 </head>
 <body>
 
-  <h2>📋 Audit An Toàn Điện v3.0</h2>
+  <h2>📋 Audit An Toàn Điện v3.1</h2>
 
   <div class="header-tools">
-    <select id="filterSection" onchange="filterData()" style="flex: 2; padding: 10px; border-radius: 5px;">
+    <select id="filterSection" onchange="filterData()" style="flex: 2; padding: 10px; border-radius: 5px; border: 1px solid #ccc;">
       <option value="ALL">-- Tất cả các phần --</option>
     </select>
     <button class="btn btn-excel" onclick="exportToExcel()">📥 Xuất Excel</button>
   </div>
 
-  <div id="loader" style="text-align: center;">⌛ Đang tải...</div>
+  <div id="loader" style="text-align: center; color: #7f8c8d; font-style: italic;">⌛ Đang tải dữ liệu...</div>
 
   <table id="dataTable">
     <thead>
-      <tr><th>STT</th><th>Nội dung kiểm tra</th><th>Kết quả</th><th>Hình ảnh</th></tr>
+      <tr><th width="5%">STT</th><th width="45%">Nội dung kiểm tra</th><th width="20%">Kết quả</th><th width="30%">Hình ảnh</th></tr>
     </thead>
     <tbody></tbody>
   </table>
@@ -56,21 +56,23 @@
 
   <div id="resultModal" class="modal">
     <div class="modal-content">
-      <h3 style="margin-top:0">📝 Cập nhật Mục <span id="modalStt"></span></h3>
-      <label>Kết quả:</label>
-      <input type="text" id="modalKetQua" class="input-text">
-      <button class="btn" onclick="updateTextOnly()" style="width: 100%; background: #27ae60;">Lưu chữ trước</button>
+      <h3 style="margin-top:0; color: #2c3e50;">📝 Cập nhật Mục <span id="modalStt"></span></h3>
+      <label><b>Kết quả kiểm tra:</b></label>
+      <input type="text" id="modalKetQua" class="input-text" placeholder="Nhập kết quả...">
+      <button class="btn" onclick="updateTextOnly()" style="width: 100%; background: #27ae60;">💾 Lưu chữ trước</button>
       
-      <hr>
-      <label>Hình ảnh (Chụp nhiều tấm):</label>
+      <hr style="margin: 20px 0; border: 0; border-top: 1px dashed #ddd;">
+      
+      <label><b>Hình ảnh minh chứng:</b></label>
       <div class="photo-grid" id="modalPhotoGrid"></div>
       
       <div style="position: relative; overflow: hidden; margin-top: 10px;">
         <button class="btn" style="width: 100%; background: #e67e22;">📸 Chụp thêm ảnh</button>
-        <input type="file" accept="image/*" capture="environment" onchange="uploadPhoto(this)" style="position: absolute; left: 0; top: 0; opacity: 0; width: 100%; height: 100%;">
+        <input type="file" accept="image/*" capture="environment" onchange="uploadPhoto(this)" style="position: absolute; left: 0; top: 0; opacity: 0; width: 100%; height: 100%; cursor: pointer;">
       </div>
-      <div id="uploadStatus" style="text-align:center; color: #d35400; font-size:13px; margin-top:5px;"></div>
-      <button class="btn" onclick="closeModal()" style="width: 100%; margin-top: 15px; background: #95a5a6;">Đóng</button>
+      <div id="uploadStatus" style="text-align:center; color: #d35400; font-size:13px; margin-top:5px; font-weight: bold;"></div>
+      
+      <button class="btn" onclick="closeModal()" style="width: 100%; margin-top: 15px; background: #95a5a6;">Đóng cửa sổ</button>
     </div>
   </div>
 
@@ -80,19 +82,25 @@
     let currentRowIndex = null;
 
     async function loadData() {
-      const res = await fetch(WEB_APP_URL);
-      const response = await res.json();
-      if (response.success) {
-        allData = response.data;
-        if (document.getElementById('filterSection').options.length === 1) {
-          const sections = [...new Set(allData.map(d => d.phanKiemTra))];
-          sections.forEach(s => {
-            const opt = document.createElement('option');
-            opt.value = opt.text = s;
-            document.getElementById('filterSection').appendChild(opt);
-          });
+      try {
+        const res = await fetch(WEB_APP_URL);
+        const response = await res.json();
+        if (response.success) {
+          allData = response.data;
+          if (document.getElementById('filterSection').options.length === 1) {
+            const sections = [...new Set(allData.map(d => d.phanKiemTra))];
+            sections.forEach(s => {
+              if (s) {
+                const opt = document.createElement('option');
+                opt.value = opt.text = s;
+                document.getElementById('filterSection').appendChild(opt);
+              }
+            });
+          }
+          filterData();
         }
-        filterData();
+      } catch (err) {
+        document.getElementById('loader').innerText = "❌ Lỗi kết nối. Vui lòng tải lại trang.";
       }
     }
 
@@ -115,22 +123,38 @@
       tbody.innerHTML = cards.innerHTML = '';
 
       data.forEach(row => {
-        const imgTags = row.hinhAnh.map(link => `<img src="${convertLink(link)}" class="img-preview" onclick="window.open('${link}')">`).join('');
+        // BỘ LỌC CHẶN ẢNH RỖNG: Chỉ lấy những link thực sự có nội dung
+        const validLinks = row.hinhAnh.filter(link => link && link.trim() !== '');
         
-        // Render Table
+        // NẾU KHÔNG CÓ ẢNH -> ĐỂ TRỐNG TRƠN 100%
+        const imgTags = validLinks.length > 0 
+          ? validLinks.map(link => `<img src="${convertLink(link)}" class="img-preview" onclick="window.open('${link}')">`).join('') 
+          : ''; 
+        
+        // Render Bảng
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${row.stt}</td><td>${row.mucKiemTra}</td>
-          <td><button class="btn" onclick="openModal(${row.rowIndex})">${row.ketQua || 'Nhập'}</button></td>
-          <td>${imgTags}</td>`;
+        tr.innerHTML = `
+          <td style="text-align: center;"><b>${row.stt}</b></td>
+          <td>${row.mucKiemTra}</td>
+          <td style="text-align: center;">
+             <div style="font-weight: bold; color: #d35400; margin-bottom: 5px;">${row.ketQua || ''}</div>
+             <button class="btn" onclick="openModal(${row.rowIndex})" style="font-size: 12px; padding: 5px 10px;">📝 Cập nhật</button>
+          </td>
+          <td>${imgTags}</td>`; // Cột ảnh sẽ hoàn toàn rỗng nếu imgTags = ''
         tbody.appendChild(tr);
 
-        // Render Cards
+        // Render Thẻ Card (Mobile)
         const card = document.createElement('div');
         card.className = 'card';
-        card.innerHTML = `<b>Mục ${row.stt}</b><p>${row.mucKiemTra}</p>
-          <div style="display:flex; justify-content:space-between; align-items:center;">
-            <button class="btn" onclick="openModal(${row.rowIndex})">📝 ${row.ketQua || 'Nhập kết quả'}</button>
-            <div>${imgTags}</div>
+        card.innerHTML = `
+          <div style="display:inline-block; background:#e8f4f8; color:#2980b9; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:bold; margin-bottom:8px;">Mục ${row.stt}</div>
+          <p style="margin-top: 0; font-size: 14.5px;">${row.mucKiemTra}</p>
+          <div style="display:flex; justify-content:space-between; align-items:center; border-top: 1px dashed #eee; padding-top: 10px;">
+            <div style="flex: 1;">
+              <div style="color: #d35400; font-weight: bold; font-size: 14px; margin-bottom: 5px;">${row.ketQua || 'Chưa kiểm tra'}</div>
+              <button class="btn" style="font-size: 12px; padding: 6px 12px;" onclick="openModal(${row.rowIndex})">📝 Cập nhật</button>
+            </div>
+            <div style="margin-left: 10px;">${imgTags}</div>
           </div>`;
         cards.appendChild(card);
       });
@@ -141,13 +165,15 @@
       const row = allData.find(r => r.rowIndex === idx);
       document.getElementById('modalStt').innerText = row.stt;
       document.getElementById('modalKetQua').value = row.ketQua || '';
+      document.getElementById('uploadStatus').innerText = '';
       refreshPhotoGrid(row.hinhAnh);
       document.getElementById('resultModal').style.display = 'block';
     }
 
     function refreshPhotoGrid(links) {
+      const validLinks = links.filter(link => link && link.trim() !== '');
       const grid = document.getElementById('modalPhotoGrid');
-      grid.innerHTML = links.map(link => `
+      grid.innerHTML = validLinks.map(link => `
         <div class="photo-item">
           <img src="${convertLink(link)}">
           <button class="btn-del" onclick="deletePhoto('${link}')">X</button>
@@ -156,7 +182,8 @@
     }
 
     async function updateTextOnly() {
-      const val = document.getElementById('modalKetQua').value;
+      const val = document.getElementById('modalKetQua').value.trim();
+      document.getElementById('uploadStatus').innerText = "⏳ Đang lưu kết quả...";
       const res = await fetch(WEB_APP_URL, {
         method: 'POST',
         body: JSON.stringify({ action: 'update_text', rowIndex: currentRowIndex, ketQua: val })
@@ -165,14 +192,14 @@
       if(data.success) {
         allData.find(r => r.rowIndex === currentRowIndex).ketQua = val;
         filterData();
-        alert("Đã lưu chữ!");
+        document.getElementById('uploadStatus').innerText = "✅ Đã lưu kết quả chữ!";
       }
     }
 
     async function uploadPhoto(input) {
       const file = input.files[0];
       if(!file) return;
-      document.getElementById('uploadStatus').innerText = "⏳ Đang tải ảnh...";
+      document.getElementById('uploadStatus').innerText = "⏳ Đang tải ảnh lên Drive...";
       
       const reader = new FileReader();
       reader.onload = async (e) => {
@@ -190,15 +217,18 @@
         if(data.success) {
           allData.find(r => r.rowIndex === currentRowIndex).hinhAnh.push(data.imageUrl);
           refreshPhotoGrid(allData.find(r => r.rowIndex === currentRowIndex).hinhAnh);
-          document.getElementById('uploadStatus').innerText = "✅ Xong!";
+          document.getElementById('uploadStatus').innerText = "✅ Đã thêm 1 ảnh!";
           filterData();
+        } else {
+          document.getElementById('uploadStatus').innerText = "❌ Lỗi tải ảnh!";
         }
       };
       reader.readAsDataURL(file);
     }
 
     async function deletePhoto(url) {
-      if(!confirm("Xoá ảnh này?")) return;
+      if(!confirm("Xoá tấm ảnh này khỏi báo cáo?")) return;
+      document.getElementById('uploadStatus').innerText = "⏳ Đang xoá ảnh...";
       const res = await fetch(WEB_APP_URL, {
         method: 'POST',
         body: JSON.stringify({ action: 'delete_image', rowIndex: currentRowIndex, imageUrl: url })
@@ -209,22 +239,26 @@
         row.hinhAnh = row.hinhAnh.filter(l => l !== url);
         refreshPhotoGrid(row.hinhAnh);
         filterData();
+        document.getElementById('uploadStatus').innerText = "✅ Đã xoá ảnh!";
       }
     }
 
     function exportToExcel() {
-      const exportData = allData.map(r => ({
-        "STT": r.stt,
-        "Phần": r.phanKiemTra,
-        "Nội dung kiểm tra": r.mucKiemTra,
-        "Căn cứ": r.canCu,
-        "Kết quả": r.ketQua,
-        "Link Hình ảnh": r.hinhAnh.join("\n")
-      }));
+      const exportData = allData.map(r => {
+        const validLinks = r.hinhAnh.filter(link => link && link.trim() !== '');
+        return {
+          "STT": r.stt,
+          "Phần": r.phanKiemTra,
+          "Nội dung kiểm tra": r.mucKiemTra,
+          "Căn cứ": r.canCu,
+          "Kết quả": r.ketQua || "",
+          "Link Hình ảnh": validLinks.join("\n") // Nếu trống sẽ để rỗng hoàn toàn
+        };
+      });
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "AuditData");
-      XLSX.writeFile(wb, `BaoCao_Audit_${new Date().toLocaleDateString()}.xlsx`);
+      XLSX.writeFile(wb, `BaoCao_Audit_${new Date().toLocaleDateString('vi-VN')}.xlsx`);
     }
 
     function closeModal() { document.getElementById('resultModal').style.display = 'none'; }
