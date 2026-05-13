@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Audit An Toàn Điện v3.1</title>
+  <title>Audit An Toàn Điện v4.0 (Offline)</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     :root { --primary: #2980b9; --bg: #f5f7fa; --text: #333; }
@@ -11,6 +11,11 @@
     .header-tools { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
     .btn-excel { background: #27ae60 !important; flex: 1; }
     
+    /* Thanh trạng thái mạng */
+    #networkStatus { background: #2ecc71; color: white; text-align: center; padding: 8px; border-radius: 5px; font-weight: bold; font-size: 13px; margin-bottom: 15px; transition: background 0.3s;}
+    .offline-mode { background: #e74c3c !important; }
+    .syncing-mode { background: #f39c12 !important; }
+
     table { width: 100%; border-collapse: collapse; background: #fff; display: table; }
     th, td { padding: 10px; border: 1px solid #ddd; font-size: 14px; vertical-align: middle; }
     th { background: #2c3e50; color: white; position: sticky; top: 0; }
@@ -35,7 +40,9 @@
 </head>
 <body>
 
-  <h2>📋 Audit An Toàn Điện v3.1</h2>
+  <h2>📋 Audit An Toàn Điện v4.0</h2>
+  
+  <div id="networkStatus">🟢 Đang trực tuyến</div>
 
   <div class="header-tools">
     <select id="filterSection" onchange="filterData()" style="flex: 2; padding: 10px; border-radius: 5px; border: 1px solid #ccc;">
@@ -81,27 +88,119 @@
     let allData = [];
     let currentRowIndex = null;
 
+    // --- ĐĂNG KÝ SERVICE WORKER (CHO PHÉP TRANG WEB LOAD KHI MẤT MẠNG) ---
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').then(reg => console.log('Service Worker OK')).catch(err => console.log('SW Lỗi', err));
+      });
+    }
+
+    // --- CƠ SỞ DỮ LIỆU OFFLINE (INDEXEDDB) ---
+    let db;
+    const request = indexedDB.open("AuditOfflineDB", 1);
+    request.onupgradeneeded = e => { db = e.target.result; db.createObjectStore("syncQueue", { keyPath: "id" }); };
+    request.onsuccess = e => { db = e.target.result; updateNetworkStatus(); };
+
+    function addToQueue(payload) {
+      payload.id = Date.now().toString() + Math.random().toString(); // Tạo ID duy nhất
+      const tx = db.transaction("syncQueue", "readwrite");
+      tx.objectStore("syncQueue").add(payload);
+      tx.oncomplete = () => { updateNetworkStatus(); };
+    }
+
+    // Lắng nghe sự kiện Bật/Tắt mạng của điện thoại
+    window.addEventListener('online', syncOfflineData);
+    window.addEventListener('offline', updateNetworkStatus);
+
+    function updateNetworkStatus() {
+      const statusDiv = document.getElementById('networkStatus');
+      if (navigator.onLine) {
+        if (!db) { statusDiv.className = ''; statusDiv.innerText = "🟢 Đang trực tuyến"; return; }
+        // Kiểm tra xem có dữ liệu chờ đồng bộ không
+        const req = db.transaction("syncQueue", "readonly").objectStore("syncQueue").count();
+        req.onsuccess = () => {
+          if (req.result > 0) {
+            statusDiv.className = 'syncing-mode';
+            statusDiv.innerText = `🔄 Có mạng! Đang tự động đồng bộ ${req.result} mục chờ...`;
+            syncOfflineData();
+          } else {
+            statusDiv.className = '';
+            statusDiv.innerText = "🟢 Đang trực tuyến";
+          }
+        };
+      } else {
+        const req = db.transaction("syncQueue", "readonly").objectStore("syncQueue").count();
+        req.onsuccess = () => {
+          statusDiv.className = 'offline-mode';
+          statusDiv.innerText = `🔴 Mất mạng (Đã lưu tạm ${req.result} mục, sẽ đồng bộ khi có mạng)`;
+        };
+      }
+    }
+
+    // --- HÀM ĐỒNG BỘ DỮ LIỆU KHI CÓ MẠNG ---
+    async function syncOfflineData() {
+      if (!navigator.onLine) return;
+      const tx = db.transaction("syncQueue", "readonly");
+      const store = tx.objectStore("syncQueue");
+      const request = store.getAll();
+      
+      request.onsuccess = async () => {
+        const items = request.result;
+        if (items.length === 0) return;
+        
+        for (const item of items) {
+          try {
+            const res = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(item) });
+            const data = await res.json();
+            if (data.success) {
+              // Gửi thành công -> XÓA DỮ LIỆU TẠM
+              db.transaction("syncQueue", "readwrite").objectStore("syncQueue").delete(item.id);
+            }
+          } catch(e) {
+            console.error("Lỗi đồng bộ", e);
+            break; // Nếu mạng chập chờn, ngừng đồng bộ, đợi lần sau
+          }
+        }
+        updateNetworkStatus();
+        loadData(); // Tải lại dữ liệu mới nhất từ server
+      };
+    }
+
+    // --- HÀM TẢI DỮ LIỆU (TỪ SERVER HOẶC TỪ CACHE) ---
     async function loadData() {
       try {
         const res = await fetch(WEB_APP_URL);
         const response = await res.json();
         if (response.success) {
           allData = response.data;
-          if (document.getElementById('filterSection').options.length === 1) {
-            const sections = [...new Set(allData.map(d => d.phanKiemTra))];
-            sections.forEach(s => {
-              if (s) {
-                const opt = document.createElement('option');
-                opt.value = opt.text = s;
-                document.getElementById('filterSection').appendChild(opt);
-              }
-            });
-          }
-          filterData();
+          // Lưu Cache vào máy để xem offline
+          localStorage.setItem('auditCachedData', JSON.stringify(allData));
+          populateFilterAndRender();
         }
       } catch (err) {
-        document.getElementById('loader').innerText = "❌ Lỗi kết nối. Vui lòng tải lại trang.";
+        // NẾU MẤT MẠNG -> ĐỌC DỮ LIỆU TỪ BỘ NHỚ TẠM
+        const cached = localStorage.getItem('auditCachedData');
+        if (cached) {
+          allData = JSON.parse(cached);
+          populateFilterAndRender();
+        } else {
+          document.getElementById('loader').innerText = "❌ Không có mạng và chưa có dữ liệu lưu tạm.";
+        }
       }
+    }
+
+    function populateFilterAndRender() {
+      if (document.getElementById('filterSection').options.length === 1) {
+        const sections = [...new Set(allData.map(d => d.phanKiemTra))];
+        sections.forEach(s => {
+          if (s) {
+            const opt = document.createElement('option');
+            opt.value = opt.text = s;
+            document.getElementById('filterSection').appendChild(opt);
+          }
+        });
+      }
+      filterData();
     }
 
     function filterData() {
@@ -112,6 +211,7 @@
 
     function convertLink(url) {
       if(!url) return "";
+      if(url.startsWith('data:image')) return url; // Bỏ qua nếu là ảnh Base64 Offline (Ảnh tạm)
       const id = url.split('/d/')[1]?.split('/')[0] || url.split('id=')[1]?.split('&')[0];
       return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w1000` : url;
     }
@@ -123,15 +223,12 @@
       tbody.innerHTML = cards.innerHTML = '';
 
       data.forEach(row => {
-        // BỘ LỌC CHẶN ẢNH RỖNG: Chỉ lấy những link thực sự có nội dung
         const validLinks = row.hinhAnh.filter(link => link && link.trim() !== '');
-        
-        // NẾU KHÔNG CÓ ẢNH -> ĐỂ TRỐNG TRƠN 100%
         const imgTags = validLinks.length > 0 
           ? validLinks.map(link => `<img src="${convertLink(link)}" class="img-preview" onclick="window.open('${link}')">`).join('') 
           : ''; 
         
-        // Render Bảng
+        // Bảng
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td style="text-align: center;"><b>${row.stt}</b></td>
@@ -140,10 +237,10 @@
              <div style="font-weight: bold; color: #d35400; margin-bottom: 5px;">${row.ketQua || ''}</div>
              <button class="btn" onclick="openModal(${row.rowIndex})" style="font-size: 12px; padding: 5px 10px;">📝 Cập nhật</button>
           </td>
-          <td>${imgTags}</td>`; // Cột ảnh sẽ hoàn toàn rỗng nếu imgTags = ''
+          <td>${imgTags}</td>`;
         tbody.appendChild(tr);
 
-        // Render Thẻ Card (Mobile)
+        // Card
         const card = document.createElement('div');
         card.className = 'card';
         card.innerHTML = `
@@ -172,8 +269,7 @@
 
     function refreshPhotoGrid(links) {
       const validLinks = links.filter(link => link && link.trim() !== '');
-      const grid = document.getElementById('modalPhotoGrid');
-      grid.innerHTML = validLinks.map(link => `
+      document.getElementById('modalPhotoGrid').innerHTML = validLinks.map(link => `
         <div class="photo-item">
           <img src="${convertLink(link)}">
           <button class="btn-del" onclick="deletePhoto('${link}')">X</button>
@@ -181,78 +277,94 @@
       `).join('');
     }
 
+    // --- CÁC HÀM XỬ LÝ (TỰ ĐỘNG LƯU OFFLINE NẾU MẤT MẠNG) ---
     async function updateTextOnly() {
       const val = document.getElementById('modalKetQua').value.trim();
-      document.getElementById('uploadStatus').innerText = "⏳ Đang lưu kết quả...";
-      const res = await fetch(WEB_APP_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'update_text', rowIndex: currentRowIndex, ketQua: val })
-      });
-      const data = await res.json();
-      if(data.success) {
-        allData.find(r => r.rowIndex === currentRowIndex).ketQua = val;
-        filterData();
-        document.getElementById('uploadStatus').innerText = "✅ Đã lưu kết quả chữ!";
+      document.getElementById('uploadStatus').innerText = "⏳ Đang xử lý...";
+      
+      const payload = { action: 'update_text', rowIndex: currentRowIndex, ketQua: val };
+      
+      // LƯU CỤC BỘ TRƯỚC ĐỂ UI CẬP NHẬT NGAY
+      allData.find(r => r.rowIndex === currentRowIndex).ketQua = val;
+      localStorage.setItem('auditCachedData', JSON.stringify(allData));
+      filterData();
+
+      try {
+        const res = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) });
+        await res.json();
+        document.getElementById('uploadStatus').innerText = "✅ Đã lưu lên máy chủ!";
+      } catch (err) {
+        addToQueue(payload); // Nếu lỗi mạng -> Đẩy vào hàng đợi
+        document.getElementById('uploadStatus').innerText = "📴 Đã lưu ngoại tuyến (Sẽ đồng bộ sau)!";
       }
     }
 
     async function uploadPhoto(input) {
       const file = input.files[0];
       if(!file) return;
-      document.getElementById('uploadStatus').innerText = "⏳ Đang tải ảnh lên Drive...";
+      document.getElementById('uploadStatus').innerText = "⏳ Đang xử lý ảnh...";
       
       const reader = new FileReader();
       reader.onload = async (e) => {
-        const res = await fetch(WEB_APP_URL, {
-          method: 'POST',
-          body: JSON.stringify({
-            action: 'upload_image',
-            rowIndex: currentRowIndex,
-            base64: e.target.result.split(',')[1],
-            mimeType: file.type,
-            fileName: file.name
-          })
-        });
-        const data = await res.json();
-        if(data.success) {
-          allData.find(r => r.rowIndex === currentRowIndex).hinhAnh.push(data.imageUrl);
-          refreshPhotoGrid(allData.find(r => r.rowIndex === currentRowIndex).hinhAnh);
-          document.getElementById('uploadStatus').innerText = "✅ Đã thêm 1 ảnh!";
-          filterData();
-        } else {
-          document.getElementById('uploadStatus').innerText = "❌ Lỗi tải ảnh!";
+        const base64Str = e.target.result.split(',')[1];
+        const payload = {
+          action: 'upload_image', rowIndex: currentRowIndex,
+          base64: base64Str, mimeType: file.type, fileName: file.name
+        };
+
+        // HIỂN THỊ ẢNH NGAY LẬP TỨC CHO NGƯỜI DÙNG BẰNG BASE64 LOCAL
+        const tempLocalUrl = `data:${file.type};base64,${base64Str}`;
+        const row = allData.find(r => r.rowIndex === currentRowIndex);
+        row.hinhAnh.push(tempLocalUrl);
+        refreshPhotoGrid(row.hinhAnh);
+        localStorage.setItem('auditCachedData', JSON.stringify(allData));
+        filterData();
+
+        try {
+          const res = await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) });
+          const data = await res.json();
+          if(data.success) {
+            document.getElementById('uploadStatus').innerText = "✅ Tải ảnh lên Drive thành công!";
+            // Cập nhật lại link thật từ Drive thay cho link tạm
+            row.hinhAnh[row.hinhAnh.length - 1] = data.imageUrl; 
+            localStorage.setItem('auditCachedData', JSON.stringify(allData));
+          }
+        } catch (err) {
+          addToQueue(payload); // Mất mạng -> Lưu hàng đợi
+          document.getElementById('uploadStatus').innerText = "📴 Đã lưu ảnh ngoại tuyến!";
         }
       };
       reader.readAsDataURL(file);
     }
 
     async function deletePhoto(url) {
-      if(!confirm("Xoá tấm ảnh này khỏi báo cáo?")) return;
-      document.getElementById('uploadStatus').innerText = "⏳ Đang xoá ảnh...";
-      const res = await fetch(WEB_APP_URL, {
-        method: 'POST',
-        body: JSON.stringify({ action: 'delete_image', rowIndex: currentRowIndex, imageUrl: url })
-      });
-      const data = await res.json();
-      if(data.success) {
-        const row = allData.find(r => r.rowIndex === currentRowIndex);
-        row.hinhAnh = row.hinhAnh.filter(l => l !== url);
-        refreshPhotoGrid(row.hinhAnh);
-        filterData();
-        document.getElementById('uploadStatus').innerText = "✅ Đã xoá ảnh!";
+      if(!confirm("Xoá ảnh này khỏi báo cáo?")) return;
+      
+      const row = allData.find(r => r.rowIndex === currentRowIndex);
+      row.hinhAnh = row.hinhAnh.filter(l => l !== url);
+      refreshPhotoGrid(row.hinhAnh);
+      localStorage.setItem('auditCachedData', JSON.stringify(allData));
+      filterData();
+
+      // Tránh xóa ảnh tạm (chưa lên server)
+      if (url.startsWith('data:image')) return;
+
+      const payload = { action: 'delete_image', rowIndex: currentRowIndex, imageUrl: url };
+      try {
+         await fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) });
+         document.getElementById('uploadStatus').innerText = "✅ Đã xoá ảnh trên máy chủ!";
+      } catch(e) {
+         addToQueue(payload);
+         document.getElementById('uploadStatus').innerText = "📴 Đã lưu lệnh xoá ngoại tuyến!";
       }
     }
 
     function exportToExcel() {
       const exportData = allData.map(r => {
-        const validLinks = r.hinhAnh.filter(link => link && link.trim() !== '');
+        const validLinks = r.hinhAnh.filter(link => link && link.trim() !== '' && !link.startsWith('data:image'));
         return {
-          "STT": r.stt,
-          "Phần": r.phanKiemTra,
-          "Nội dung kiểm tra": r.mucKiemTra,
-          "Căn cứ": r.canCu,
-          "Kết quả": r.ketQua || "",
-          "Link Hình ảnh": validLinks.join("\n") // Nếu trống sẽ để rỗng hoàn toàn
+          "STT": r.stt, "Phần": r.phanKiemTra, "Nội dung kiểm tra": r.mucKiemTra,
+          "Căn cứ": r.canCu, "Kết quả": r.ketQua || "", "Link Hình ảnh": validLinks.join("\n")
         };
       });
       const ws = XLSX.utils.json_to_sheet(exportData);
