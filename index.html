@@ -167,7 +167,7 @@
       }
     }
 
-    // Chuyển link Drive thành link Direct để hiện ảnh
+    // Chuyển link Drive thành link Direct để hiện ảnh (Cập nhật vượt tường lửa Google)
     function convertToDirectLink(url) {
       if(!url) return "";
       let fileId = "";
@@ -176,7 +176,9 @@
       } else if (url.includes('id=')) {
         fileId = url.split('id=')[1].split('&')[0];
       }
-      return fileId ? `https://drive.google.com/uc?export=view&id=${fileId}` : url;
+      
+      // Sử dụng endpoint Thumbnail của Google để ép hiển thị ảnh (sz=w1000 là kích thước ảnh lớn)
+      return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000` : url;
     }
 
     // Phóng to ảnh
