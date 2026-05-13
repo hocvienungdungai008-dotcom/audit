@@ -1,1 +1,191 @@
-test
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checklist Audit An Toàn Điện</title>
+  <style>
+    :root { --primary: #2980b9; --bg: #f5f7fa; --text: #333; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); padding: 15px; margin: 0; }
+    h2 { text-align: center; color: #2c3e50; border-bottom: 2px solid #bdc3c7; padding-bottom: 10px; }
+    #loader { text-align: center; margin-top: 30px; font-style: italic; color: #7f8c8d; }
+    
+    /* Giao diện Bảng cho Laptop/PC */
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: table; }
+    th, td { padding: 12px 15px; border: 1px solid #e0e6ed; text-align: left; vertical-align: top; }
+    th { background: #2c3e50; color: white; font-weight: 600; position: sticky; top: 0; }
+    tr:nth-child(even) { background-color: #f8fafc; }
+    .img-preview { max-width: 120px; max-height: 120px; border-radius: 6px; border: 1px solid #ddd; object-fit: cover; }
+    
+    /* Nút Tải ảnh */
+    .upload-btn-wrapper { position: relative; overflow: hidden; display: inline-block; margin-top: 5px; }
+    .btn { border: none; color: white; background-color: var(--primary); padding: 8px 15px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; transition: background 0.3s; }
+    .btn:hover { background-color: #1a5276; }
+    .upload-btn-wrapper input[type=file] { font-size: 100px; position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; }
+    .status { font-size: 13px; color: #d35400; margin-top: 5px; font-weight: 500; }
+
+    /* Giao diện Thẻ (Card) cho Điện thoại */
+    .card-container { display: none; }
+    .card { background: #fff; border-radius: 10px; padding: 18px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.08); border-left: 4px solid var(--primary); }
+    .card-item { margin-bottom: 12px; font-size: 14.5px; line-height: 1.5; }
+    .card-item strong { color: #2c3e50; display: inline-block; margin-bottom: 3px; }
+    .card-item span { color: #555; }
+    .card-tag { display: inline-block; background: #e8f4f8; color: #2980b9; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-bottom: 10px; }
+
+    /* Responsive - Chuyển sang Card khi màn hình < 768px */
+    @media (max-width: 768px) {
+      table { display: none; }
+      .card-container { display: block; }
+    }
+  </style>
+</head>
+<body>
+
+  <h2>📋 Danh sách Audit An Toàn Điện</h2>
+  <div id="loader">⏳ Đang tải dữ liệu từ Google Sheet...</div>
+  
+  <table id="dataTable">
+    <thead>
+      <tr>
+        <th width="5%">STT</th>
+        <th width="20%">Phần kiểm tra</th>
+        <th width="35%">Mục kiểm tra</th>
+        <th width="15%">Kết quả</th>
+        <th width="25%">Đính kèm Hình ảnh</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <div class="card-container" id="dataCards"></div>
+
+  <script>
+    // 🔴 BƯỚC QUAN TRỌNG: DÁN URL CỦA GOOGLE APPS SCRIPT VÀO ĐÂY
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxjAAk3DMCXW_XeH1WeBhri2ukCYrFO3j6FlQLiwW8XD2I2K2PQvpjTkdeXi7HsZW7u6w/exec";
+
+    document.addEventListener("DOMContentLoaded", loadData);
+
+    function loadData() {
+      fetch(WEB_APP_URL)
+        .then(res => res.json())
+        .then(response => {
+          if (response.success) {
+            renderData(response.data);
+          } else {
+            alert("Lỗi tải dữ liệu: " + response.error);
+          }
+        })
+        .catch(err => {
+          document.getElementById('loader').innerText = "❌ Lỗi kết nối. Vui lòng kiểm tra lại đường dẫn Web App URL.";
+          console.error(err);
+        });
+    }
+
+    function renderData(data) {
+      document.getElementById('loader').style.display = 'none';
+      const tbody = document.querySelector('#dataTable tbody');
+      const cardContainer = document.getElementById('dataCards');
+      
+      data.forEach(row => {
+        // --- TẠO GIAO DIỆN BẢNG (DESKTOP) ---
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><b>${row.stt}</b></td>
+          <td>${row.phanKiemTra}</td>
+          <td>${row.mucKiemTra}<br><br><small style="color:#7f8c8d"><i>Căn cứ: ${row.canCu}</i></small></td>
+          <td><b>${row.ketQua || 'Chưa kiểm tra'}</b></td>
+          <td>
+            <div id="img-container-${row.rowIndex}">
+              ${row.hinhAnh ? `<a href="${row.hinhAnh}" target="_blank"><img src="${row.hinhAnh}" class="img-preview"></a>` : ''}
+            </div>
+            <div class="upload-btn-wrapper">
+              <button class="btn">📸 Tải ảnh lên</button>
+              <input type="file" accept="image/*" capture="environment" onchange="uploadImage(this, ${row.rowIndex})" />
+            </div>
+            <div id="status-${row.rowIndex}" class="status"></div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+
+        // --- TẠO GIAO DIỆN THẺ (MOBILE) ---
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <div class="card-tag">Mục ${row.stt}</div>
+          <div class="card-item"><strong>Phần:</strong> <span>${row.phanKiemTra}</span></div>
+          <div class="card-item"><strong>Nội dung kiểm tra:</strong> <span>${row.mucKiemTra}</span></div>
+          <div class="card-item"><strong>Kết quả:</strong> <span><b>${row.ketQua || 'Chưa kiểm tra'}</b></span></div>
+          <div style="border-top: 1px dashed #ddd; margin: 15px 0; padding-top: 10px;">
+            <strong>Hình ảnh minh chứng:</strong>
+            <div id="img-container-mobile-${row.rowIndex}" style="margin-top: 8px;">
+              ${row.hinhAnh ? `<a href="${row.hinhAnh}" target="_blank"><img src="${row.hinhAnh}" class="img-preview"></a>` : ''}
+            </div>
+            <div class="upload-btn-wrapper" style="margin-top: 10px;">
+              <button class="btn">📸 Chụp / Chọn ảnh</button>
+              <input type="file" accept="image/*" capture="environment" onchange="uploadImage(this, ${row.rowIndex})" />
+            </div>
+            <div id="status-mobile-${row.rowIndex}" class="status"></div>
+          </div>
+        `;
+        cardContainer.appendChild(card);
+      });
+    }
+
+    // --- HÀM XỬ LÝ UPLOAD ẢNH ---
+    function uploadImage(input, rowIndex) {
+      const file = input.files[0];
+      if (!file) return;
+
+      const statusDesktop = document.getElementById(`status-${rowIndex}`);
+      const statusMobile = document.getElementById(`status-mobile-${rowIndex}`);
+      
+      if(statusDesktop) statusDesktop.innerText = "⏳ Đang tải ảnh lên Drive...";
+      if(statusMobile) statusMobile.innerText = "⏳ Đang tải ảnh lên Drive...";
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        // Tách lấy chuỗi Base64
+        const base64Data = e.target.result.split(',')[1];
+        
+        const payload = {
+          rowIndex: rowIndex,
+          base64: base64Data,
+          mimeType: file.type,
+          fileName: `Audit_${rowIndex}_${new Date().getTime()}.${file.name.split('.').pop()}`
+        };
+
+        // Gửi POST request đến Google Apps Script
+        fetch(WEB_APP_URL, {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(response => {
+          if (response.success) {
+            if(statusDesktop) statusDesktop.innerText = "✅ Tải lên thành công!";
+            if(statusMobile) statusMobile.innerText = "✅ Tải lên thành công!";
+            
+            const imgHtml = `<a href="${response.imageUrl}" target="_blank"><img src="${response.imageUrl}" class="img-preview" style="margin-bottom:10px;"></a>`;
+            
+            const imgContainerD = document.getElementById(`img-container-${rowIndex}`);
+            if(imgContainerD) imgContainerD.innerHTML = imgHtml;
+            
+            const imgContainerM = document.getElementById(`img-container-mobile-${rowIndex}`);
+            if(imgContainerM) imgContainerM.innerHTML = imgHtml;
+          } else {
+            if(statusDesktop) statusDesktop.innerText = "❌ Lỗi: " + response.error;
+            if(statusMobile) statusMobile.innerText = "❌ Lỗi: " + response.error;
+          }
+        })
+        .catch(err => {
+          if(statusDesktop) statusDesktop.innerText = "❌ Lỗi kết nối mạng!";
+          if(statusMobile) statusMobile.innerText = "❌ Lỗi kết nối mạng!";
+          console.error(err);
+        });
+      };
+      // Đọc file dưới dạng chuỗi Base64
+      reader.readAsDataURL(file);
+    }
+  </script>
+</body>
+</html>
