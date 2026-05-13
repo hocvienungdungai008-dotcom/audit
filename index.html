@@ -7,32 +7,48 @@
   <style>
     :root { --primary: #2980b9; --bg: #f5f7fa; --text: #333; }
     body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); padding: 15px; margin: 0; }
-    h2 { text-align: center; color: #2c3e50; border-bottom: 2px solid #bdc3c7; padding-bottom: 10px; }
+    h2 { text-align: center; color: #2c3e50; border-bottom: 2px solid #bdc3c7; padding-bottom: 10px; margin-top: 5px; }
     #loader { text-align: center; margin-top: 30px; font-style: italic; color: #7f8c8d; }
     
-    /* Giao diện Bảng cho Laptop/PC */
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: table; }
+    /* Dropdown Lọc */
+    .filter-container { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 15px; }
+    .filter-container label { font-weight: bold; color: #2c3e50; }
+    select { width: 100%; padding: 10px; margin-top: 8px; border: 1px solid #ccc; border-radius: 5px; font-size: 15px; }
+
+    /* Bảng Laptop */
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: table; }
     th, td { padding: 12px 15px; border: 1px solid #e0e6ed; text-align: left; vertical-align: top; }
     th { background: #2c3e50; color: white; font-weight: 600; position: sticky; top: 0; }
     tr:nth-child(even) { background-color: #f8fafc; }
-    .img-preview { max-width: 120px; max-height: 120px; border-radius: 6px; border: 1px solid #ddd; object-fit: cover; }
     
-    /* Nút Tải ảnh */
-    .upload-btn-wrapper { position: relative; overflow: hidden; display: inline-block; margin-top: 5px; }
-    .btn { border: none; color: white; background-color: var(--primary); padding: 8px 15px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; transition: background 0.3s; }
+    /* Ảnh & Nút */
+    .img-preview { max-width: 100px; max-height: 100px; border-radius: 6px; border: 1px solid #ddd; object-fit: cover; cursor: pointer; transition: transform 0.2s; }
+    .img-preview:hover { transform: scale(1.05); }
+    .btn { border: none; color: white; background-color: var(--primary); padding: 8px 15px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; transition: background 0.3s; margin-top: 5px;}
     .btn:hover { background-color: #1a5276; }
-    .upload-btn-wrapper input[type=file] { font-size: 100px; position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; }
-    .status { font-size: 13px; color: #d35400; margin-top: 5px; font-weight: 500; }
+    .btn-action { background-color: #27ae60; width: 100%; }
+    .btn-action:hover { background-color: #1e8449; }
+    .empty-img { color: #95a5a6; font-style: italic; font-size: 13px; }
 
-    /* Giao diện Thẻ (Card) cho Điện thoại */
+    /* Thẻ Card Điện thoại */
     .card-container { display: none; }
     .card { background: #fff; border-radius: 10px; padding: 18px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.08); border-left: 4px solid var(--primary); }
     .card-item { margin-bottom: 12px; font-size: 14.5px; line-height: 1.5; }
     .card-item strong { color: #2c3e50; display: inline-block; margin-bottom: 3px; }
-    .card-item span { color: #555; }
     .card-tag { display: inline-block; background: #e8f4f8; color: #2980b9; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-bottom: 10px; }
 
-    /* Responsive - Chuyển sang Card khi màn hình < 768px */
+    /* Modal (Cửa sổ nhập liệu) */
+    .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); }
+    .modal-content { background-color: #fff; margin: 10% auto; padding: 20px; border-radius: 8px; width: 90%; max-width: 450px; position: relative;}
+    .close-modal { position: absolute; right: 15px; top: 15px; font-size: 24px; font-weight: bold; cursor: pointer; color: #888; }
+    .upload-wrapper { position: relative; overflow: hidden; display: inline-block; width: 100%; margin: 10px 0; }
+    .upload-wrapper input[type=file] { font-size: 100px; position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; }
+    .input-text { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 15px; }
+
+    /* Lightbox (Phóng to ảnh) */
+    .lightbox { display: none; position: fixed; z-index: 999; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); justify-content: center; align-items: center; }
+    .lightbox img { max-width: 90%; max-height: 90%; border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+
     @media (max-width: 768px) {
       table { display: none; }
       .card-container { display: block; }
@@ -41,7 +57,15 @@
 </head>
 <body>
 
-  <h2>📋 Danh sách Audit An Toàn Điện</h2>
+  <h2>📋 Audit An Toàn Điện</h2>
+
+  <div class="filter-container">
+    <label>🔍 Chọn Phần Kiểm Tra:</label>
+    <select id="filterSection" onchange="filterData()">
+      <option value="ALL">-- Tất cả --</option>
+    </select>
+  </div>
+
   <div id="loader">⏳ Đang tải dữ liệu từ Google Sheet...</div>
   
   <table id="dataTable">
@@ -50,8 +74,8 @@
         <th width="5%">STT</th>
         <th width="20%">Phần kiểm tra</th>
         <th width="35%">Mục kiểm tra</th>
-        <th width="15%">Kết quả</th>
-        <th width="25%">Đính kèm Hình ảnh</th>
+        <th width="20%">Kết quả</th>
+        <th width="20%">Đính kèm Hình ảnh</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -59,132 +83,219 @@
 
   <div class="card-container" id="dataCards"></div>
 
+  <div id="lightbox" class="lightbox" onclick="this.style.display='none'">
+    <img id="lightbox-img" src="">
+  </div>
+
+  <div id="resultModal" class="modal">
+    <div class="modal-content">
+      <span class="close-modal" onclick="closeModal()">&times;</span>
+      <h3 style="margin-top:0; color:#2c3e50;">📝 Nhập Kết Quả & Ảnh</h3>
+      
+      <label><b>Kết quả kiểm tra:</b></label>
+      <input type="text" id="modalKetQua" class="input-text" placeholder="VD: Đạt, Không đạt, Cần bảo trì...">
+      
+      <label><b>Ảnh minh chứng (nếu có):</b></label>
+      <div class="upload-wrapper">
+         <button class="btn" style="width: 100%; background: #95a5a6; padding: 12px;">📸 Chụp ảnh / Chọn file</button>
+         <input type="file" id="modalImage" accept="image/*" capture="environment">
+      </div>
+      <div id="fileNameDisplay" style="font-size: 13px; color: #16a085; font-weight:bold; margin-bottom: 15px;"></div>
+      
+      <button class="btn btn-action" style="padding: 12px; font-size: 15px;" onclick="submitResult()">💾 LƯU KẾT QUẢ</button>
+      <div id="modalStatus" style="text-align: center; margin-top: 15px; font-size: 14px; font-weight: bold; color: #d35400;"></div>
+    </div>
+  </div>
+
   <script>
-    // 🔴 BƯỚC QUAN TRỌNG: DÁN URL CỦA GOOGLE APPS SCRIPT VÀO ĐÂY
+    // DÁN URL CỦA GOOGLE APPS SCRIPT VÀO ĐÂY
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxjAAk3DMCXW_XeH1WeBhri2ukCYrFO3j6FlQLiwW8XD2I2K2PQvpjTkdeXi7HsZW7u6w/exec";
+    
+    let allData = [];
+    let currentRowIndex = null;
 
     document.addEventListener("DOMContentLoaded", loadData);
+
+    // Xử lý hiển thị tên file khi chọn ảnh
+    document.getElementById('modalImage').addEventListener('change', function() {
+      if(this.files[0]) {
+        document.getElementById('fileNameDisplay').innerText = "✔️ Đã chọn ảnh: " + this.files[0].name;
+      } else {
+        document.getElementById('fileNameDisplay').innerText = "";
+      }
+    });
 
     function loadData() {
       fetch(WEB_APP_URL)
         .then(res => res.json())
         .then(response => {
           if (response.success) {
-            renderData(response.data);
+            allData = response.data;
+            populateFilter(allData);
+            renderData(allData);
           } else {
             alert("Lỗi tải dữ liệu: " + response.error);
           }
         })
         .catch(err => {
-          document.getElementById('loader').innerText = "❌ Lỗi kết nối. Vui lòng kiểm tra lại đường dẫn Web App URL.";
-          console.error(err);
+          document.getElementById('loader').innerText = "❌ Lỗi kết nối. Vui lòng kiểm tra lại đường dẫn.";
         });
     }
 
+    // Nạp danh sách vào Dropdown
+    function populateFilter(data) {
+      const select = document.getElementById('filterSection');
+      const uniqueSections = [...new Set(data.map(item => item.phanKiemTra))];
+      uniqueSections.forEach(section => {
+        if(section) {
+          const option = document.createElement('option');
+          option.value = section;
+          option.innerText = section;
+          select.appendChild(option);
+        }
+      });
+    }
+
+    // Lọc dữ liệu theo Dropdown
+    function filterData() {
+      const selected = document.getElementById('filterSection').value;
+      if (selected === "ALL") {
+        renderData(allData);
+      } else {
+        const filtered = allData.filter(r => r.phanKiemTra === selected);
+        renderData(filtered);
+      }
+    }
+
+    // Chuyển link Drive thành link Direct để hiện ảnh
+    function convertToDirectLink(url) {
+      if(!url) return "";
+      let fileId = "";
+      if (url.includes('/d/')) {
+        fileId = url.split('/d/')[1].split('/')[0];
+      } else if (url.includes('id=')) {
+        fileId = url.split('id=')[1].split('&')[0];
+      }
+      return fileId ? `https://drive.google.com/uc?export=view&id=${fileId}` : url;
+    }
+
+    // Phóng to ảnh
+    function showLightbox(src) {
+      document.getElementById('lightbox-img').src = src;
+      document.getElementById('lightbox').style.display = 'flex';
+    }
+
+    // Mở cửa sổ nhập liệu
+    function openModal(rowIndex) {
+      currentRowIndex = rowIndex;
+      const rowData = allData.find(r => r.rowIndex === rowIndex);
+      document.getElementById('modalKetQua').value = rowData.ketQua || '';
+      document.getElementById('modalImage').value = '';
+      document.getElementById('fileNameDisplay').innerText = '';
+      document.getElementById('modalStatus').innerText = '';
+      document.getElementById('resultModal').style.display = "block";
+    }
+
+    function closeModal() {
+      document.getElementById('resultModal').style.display = "none";
+    }
+
+    // Lưu kết quả lên Google Sheet
+    function submitResult() {
+      const ketQua = document.getElementById('modalKetQua').value.trim();
+      const fileInput = document.getElementById('modalImage');
+      const file = fileInput.files[0];
+      const statusDiv = document.getElementById('modalStatus');
+      
+      statusDiv.innerText = "⏳ Đang đồng bộ lên máy chủ...";
+      
+      const payload = { rowIndex: currentRowIndex, ketQua: ketQua };
+
+      if (file) {
+        statusDiv.innerText = "⏳ Đang tải ảnh và lưu kết quả...";
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          payload.base64 = e.target.result.split(',')[1];
+          payload.mimeType = file.type;
+          payload.fileName = `Audit_${currentRowIndex}_${new Date().getTime()}.${file.name.split('.').pop()}`;
+          sendPostRequest(payload);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        sendPostRequest(payload);
+      }
+    }
+
+    function sendPostRequest(payload) {
+      fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) })
+      .then(res => res.json())
+      .then(res => {
+        if(res.success) {
+          document.getElementById('modalStatus').innerText = "✅ Đã lưu thành công!";
+          // Cập nhật lại mảng dữ liệu cục bộ
+          const row = allData.find(r => r.rowIndex === currentRowIndex);
+          row.ketQua = payload.ketQua;
+          if(res.imageUrl) row.hinhAnh = res.imageUrl;
+          
+          setTimeout(() => {
+            closeModal();
+            filterData(); // Vẽ lại giao diện
+          }, 1000);
+        } else {
+          document.getElementById('modalStatus').innerText = "❌ Lỗi: " + res.error;
+        }
+      }).catch(err => {
+        document.getElementById('modalStatus').innerText = "❌ Lỗi kết nối mạng!";
+      });
+    }
+
+    // Vẽ giao diện
     function renderData(data) {
       document.getElementById('loader').style.display = 'none';
       const tbody = document.querySelector('#dataTable tbody');
       const cardContainer = document.getElementById('dataCards');
+      tbody.innerHTML = '';
+      cardContainer.innerHTML = '';
       
       data.forEach(row => {
-        // --- TẠO GIAO DIỆN BẢNG (DESKTOP) ---
+        const directImgUrl = convertToDirectLink(row.hinhAnh);
+        const imgHtml = directImgUrl 
+          ? `<img src="${directImgUrl}" class="img-preview" onclick="showLightbox('${directImgUrl}')" title="Bấm để phóng to">` 
+          : `<span class="empty-img">Chưa có ảnh</span>`;
+        
+        const actionBtn = `<button class="btn btn-action" onclick="openModal(${row.rowIndex})">📝 Nhập Kết quả</button>`;
+
+        // BẢNG LAPTOP
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td><b>${row.stt}</b></td>
           <td>${row.phanKiemTra}</td>
           <td>${row.mucKiemTra}<br><br><small style="color:#7f8c8d"><i>Căn cứ: ${row.canCu}</i></small></td>
-          <td><b>${row.ketQua || 'Chưa kiểm tra'}</b></td>
-          <td>
-            <div id="img-container-${row.rowIndex}">
-              ${row.hinhAnh ? `<a href="${row.hinhAnh}" target="_blank"><img src="${row.hinhAnh}" class="img-preview"></a>` : ''}
-            </div>
-            <div class="upload-btn-wrapper">
-              <button class="btn">📸 Tải ảnh lên</button>
-              <input type="file" accept="image/*" capture="environment" onchange="uploadImage(this, ${row.rowIndex})" />
-            </div>
-            <div id="status-${row.rowIndex}" class="status"></div>
+          <td style="text-align:center;">
+            <div style="margin-bottom:10px; font-weight:bold; color:#d35400;">${row.ketQua || '---'}</div>
+            ${actionBtn}
           </td>
+          <td style="text-align:center; vertical-align:middle;">${imgHtml}</td>
         `;
         tbody.appendChild(tr);
 
-        // --- TẠO GIAO DIỆN THẺ (MOBILE) ---
+        // THẺ ĐIỆN THOẠI
         const card = document.createElement('div');
         card.className = 'card';
         card.innerHTML = `
           <div class="card-tag">Mục ${row.stt}</div>
           <div class="card-item"><strong>Phần:</strong> <span>${row.phanKiemTra}</span></div>
-          <div class="card-item"><strong>Nội dung kiểm tra:</strong> <span>${row.mucKiemTra}</span></div>
-          <div class="card-item"><strong>Kết quả:</strong> <span><b>${row.ketQua || 'Chưa kiểm tra'}</b></span></div>
-          <div style="border-top: 1px dashed #ddd; margin: 15px 0; padding-top: 10px;">
-            <strong>Hình ảnh minh chứng:</strong>
-            <div id="img-container-mobile-${row.rowIndex}" style="margin-top: 8px;">
-              ${row.hinhAnh ? `<a href="${row.hinhAnh}" target="_blank"><img src="${row.hinhAnh}" class="img-preview"></a>` : ''}
-            </div>
-            <div class="upload-btn-wrapper" style="margin-top: 10px;">
-              <button class="btn">📸 Chụp / Chọn ảnh</button>
-              <input type="file" accept="image/*" capture="environment" onchange="uploadImage(this, ${row.rowIndex})" />
-            </div>
-            <div id="status-mobile-${row.rowIndex}" class="status"></div>
+          <div class="card-item"><strong>Nội dung:</strong> <span>${row.mucKiemTra}</span></div>
+          <div class="card-item">
+            <strong>Kết quả:</strong> <span style="color:#d35400; font-weight:bold;">${row.ketQua || '---'}</span>
+          </div>
+          <div style="border-top: 1px dashed #ddd; margin: 15px 0; padding-top: 15px; display:flex; justify-content: space-between; align-items:center;">
+            <div style="flex:1;">${actionBtn}</div>
+            <div style="margin-left: 15px;">${imgHtml}</div>
           </div>
         `;
         cardContainer.appendChild(card);
       });
-    }
-
-    // --- HÀM XỬ LÝ UPLOAD ẢNH ---
-    function uploadImage(input, rowIndex) {
-      const file = input.files[0];
-      if (!file) return;
-
-      const statusDesktop = document.getElementById(`status-${rowIndex}`);
-      const statusMobile = document.getElementById(`status-mobile-${rowIndex}`);
-      
-      if(statusDesktop) statusDesktop.innerText = "⏳ Đang tải ảnh lên Drive...";
-      if(statusMobile) statusMobile.innerText = "⏳ Đang tải ảnh lên Drive...";
-
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        // Tách lấy chuỗi Base64
-        const base64Data = e.target.result.split(',')[1];
-        
-        const payload = {
-          rowIndex: rowIndex,
-          base64: base64Data,
-          mimeType: file.type,
-          fileName: `Audit_${rowIndex}_${new Date().getTime()}.${file.name.split('.').pop()}`
-        };
-
-        // Gửi POST request đến Google Apps Script
-        fetch(WEB_APP_URL, {
-          method: 'POST',
-          body: JSON.stringify(payload)
-        })
-        .then(res => res.json())
-        .then(response => {
-          if (response.success) {
-            if(statusDesktop) statusDesktop.innerText = "✅ Tải lên thành công!";
-            if(statusMobile) statusMobile.innerText = "✅ Tải lên thành công!";
-            
-            const imgHtml = `<a href="${response.imageUrl}" target="_blank"><img src="${response.imageUrl}" class="img-preview" style="margin-bottom:10px;"></a>`;
-            
-            const imgContainerD = document.getElementById(`img-container-${rowIndex}`);
-            if(imgContainerD) imgContainerD.innerHTML = imgHtml;
-            
-            const imgContainerM = document.getElementById(`img-container-mobile-${rowIndex}`);
-            if(imgContainerM) imgContainerM.innerHTML = imgHtml;
-          } else {
-            if(statusDesktop) statusDesktop.innerText = "❌ Lỗi: " + response.error;
-            if(statusMobile) statusMobile.innerText = "❌ Lỗi: " + response.error;
-          }
-        })
-        .catch(err => {
-          if(statusDesktop) statusDesktop.innerText = "❌ Lỗi kết nối mạng!";
-          if(statusMobile) statusMobile.innerText = "❌ Lỗi kết nối mạng!";
-          console.error(err);
-        });
-      };
-      // Đọc file dưới dạng chuỗi Base64
-      reader.readAsDataURL(file);
     }
   </script>
 </body>
