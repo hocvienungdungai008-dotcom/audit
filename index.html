@@ -3,302 +3,232 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Checklist Audit An Toàn Điện</title>
+  <title>Audit An Toàn Điện v3.0</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <style>
     :root { --primary: #2980b9; --bg: #f5f7fa; --text: #333; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--bg); color: var(--text); padding: 15px; margin: 0; }
-    h2 { text-align: center; color: #2c3e50; border-bottom: 2px solid #bdc3c7; padding-bottom: 10px; margin-top: 5px; }
-    #loader { text-align: center; margin-top: 30px; font-style: italic; color: #7f8c8d; }
+    body { font-family: 'Segoe UI', sans-serif; background: var(--bg); padding: 15px; margin: 0; }
+    .header-tools { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+    .btn-excel { background: #27ae60 !important; flex: 1; }
     
-    /* Dropdown Lọc */
-    .filter-container { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 15px; }
-    .filter-container label { font-weight: bold; color: #2c3e50; }
-    select { width: 100%; padding: 10px; margin-top: 8px; border: 1px solid #ccc; border-radius: 5px; font-size: 15px; }
+    table { width: 100%; border-collapse: collapse; background: #fff; display: table; }
+    th, td { padding: 10px; border: 1px solid #ddd; font-size: 14px; }
+    th { background: #2c3e50; color: white; position: sticky; top: 0; }
 
-    /* Bảng Laptop */
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; background: #fff; box-shadow: 0 4px 6px rgba(0,0,0,0.05); display: table; }
-    th, td { padding: 12px 15px; border: 1px solid #e0e6ed; text-align: left; vertical-align: top; }
-    th { background: #2c3e50; color: white; font-weight: 600; position: sticky; top: 0; }
-    tr:nth-child(even) { background-color: #f8fafc; }
+    /* Quản lý ảnh trong Modal */
+    .photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 15px 0; }
+    .photo-item { position: relative; border: 1px solid #ddd; border-radius: 5px; height: 80px; }
+    .photo-item img { width: 100%; height: 100%; object-fit: cover; border-radius: 4px; }
+    .btn-del { position: absolute; top: -5px; right: -5px; background: red; color: white; border-radius: 50%; width: 20px; height: 20px; border: none; font-size: 12px; cursor: pointer; }
+
+    .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); }
+    .modal-content { background: #fff; margin: 5% auto; padding: 20px; border-radius: 8px; width: 90%; max-width: 500px; }
+    .input-text { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; }
+    .btn { padding: 10px 15px; border: none; border-radius: 5px; color: white; background: var(--primary); cursor: pointer; font-weight: bold; }
     
-    /* Ảnh & Nút */
-    .img-preview { max-width: 100px; max-height: 100px; border-radius: 6px; border: 1px solid #ddd; object-fit: cover; cursor: pointer; transition: transform 0.2s; }
-    .img-preview:hover { transform: scale(1.05); }
-    .btn { border: none; color: white; background-color: var(--primary); padding: 8px 15px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: bold; transition: background 0.3s; margin-top: 5px;}
-    .btn:hover { background-color: #1a5276; }
-    .btn-action { background-color: #27ae60; width: 100%; }
-    .btn-action:hover { background-color: #1e8449; }
-    .empty-img { color: #95a5a6; font-style: italic; font-size: 13px; }
-
-    /* Thẻ Card Điện thoại */
+    .img-preview { width: 60px; height: 60px; object-fit: cover; border-radius: 4px; margin: 2px; cursor: pointer; border: 1px solid #eee; }
+    
+    @media (max-width: 768px) { table { display: none; } .card-container { display: block; } }
     .card-container { display: none; }
-    .card { background: #fff; border-radius: 10px; padding: 18px; margin-bottom: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.08); border-left: 4px solid var(--primary); }
-    .card-item { margin-bottom: 12px; font-size: 14.5px; line-height: 1.5; }
-    .card-item strong { color: #2c3e50; display: inline-block; margin-bottom: 3px; }
-    .card-tag { display: inline-block; background: #e8f4f8; color: #2980b9; padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: bold; margin-bottom: 10px; }
-
-    /* Modal (Cửa sổ nhập liệu) */
-    .modal { display: none; position: fixed; z-index: 100; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); }
-    .modal-content { background-color: #fff; margin: 10% auto; padding: 20px; border-radius: 8px; width: 90%; max-width: 450px; position: relative;}
-    .close-modal { position: absolute; right: 15px; top: 15px; font-size: 24px; font-weight: bold; cursor: pointer; color: #888; }
-    .upload-wrapper { position: relative; overflow: hidden; display: inline-block; width: 100%; margin: 10px 0; }
-    .upload-wrapper input[type=file] { font-size: 100px; position: absolute; left: 0; top: 0; opacity: 0; cursor: pointer; }
-    .input-text { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 15px; }
-
-    /* Lightbox (Phóng to ảnh) */
-    .lightbox { display: none; position: fixed; z-index: 999; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); justify-content: center; align-items: center; }
-    .lightbox img { max-width: 90%; max-height: 90%; border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-
-    @media (max-width: 768px) {
-      table { display: none; }
-      .card-container { display: block; }
-    }
+    .card { background: #fff; padding: 15px; margin-bottom: 15px; border-radius: 8px; border-left: 5px solid var(--primary); box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
   </style>
 </head>
 <body>
 
-  <h2>📋 Audit An Toàn Điện</h2>
+  <h2>📋 Audit An Toàn Điện v3.0</h2>
 
-  <div class="filter-container">
-    <label>🔍 Chọn Phần Kiểm Tra:</label>
-    <select id="filterSection" onchange="filterData()">
-      <option value="ALL">-- Tất cả --</option>
+  <div class="header-tools">
+    <select id="filterSection" onchange="filterData()" style="flex: 2; padding: 10px; border-radius: 5px;">
+      <option value="ALL">-- Tất cả các phần --</option>
     </select>
+    <button class="btn btn-excel" onclick="exportToExcel()">📥 Xuất Excel</button>
   </div>
 
-  <div id="loader">⏳ Đang tải dữ liệu...</div>
-  
+  <div id="loader" style="text-align: center;">⌛ Đang tải...</div>
+
   <table id="dataTable">
     <thead>
-      <tr>
-        <th width="5%">STT</th>
-        <th width="20%">Phần kiểm tra</th>
-        <th width="35%">Mục kiểm tra</th>
-        <th width="20%">Kết quả</th>
-        <th width="20%">Đính kèm Hình ảnh</th>
-      </tr>
+      <tr><th>STT</th><th>Nội dung kiểm tra</th><th>Kết quả</th><th>Hình ảnh</th></tr>
     </thead>
     <tbody></tbody>
   </table>
-
   <div class="card-container" id="dataCards"></div>
-
-  <div id="lightbox" class="lightbox" onclick="this.style.display='none'">
-    <img id="lightbox-img" src="">
-  </div>
 
   <div id="resultModal" class="modal">
     <div class="modal-content">
-      <span class="close-modal" onclick="closeModal()">&times;</span>
-      <h3 style="margin-top:0; color:#2c3e50;">📝 Nhập Kết Quả & Ảnh</h3>
+      <h3 style="margin-top:0">📝 Cập nhật Mục <span id="modalStt"></span></h3>
+      <label>Kết quả:</label>
+      <input type="text" id="modalKetQua" class="input-text">
+      <button class="btn" onclick="updateTextOnly()" style="width: 100%; background: #27ae60;">Lưu chữ trước</button>
       
-      <label><b>Kết quả kiểm tra:</b></label>
-      <input type="text" id="modalKetQua" class="input-text" placeholder="VD: Đạt, Không đạt, Cần bảo trì...">
+      <hr>
+      <label>Hình ảnh (Chụp nhiều tấm):</label>
+      <div class="photo-grid" id="modalPhotoGrid"></div>
       
-      <label><b>Ảnh minh chứng (nếu có):</b></label>
-      <div class="upload-wrapper">
-         <button class="btn" style="width: 100%; background: #95a5a6; padding: 12px;">📸 Chụp ảnh / Chọn file</button>
-         <input type="file" id="modalImage" accept="image/*" capture="environment">
+      <div style="position: relative; overflow: hidden; margin-top: 10px;">
+        <button class="btn" style="width: 100%; background: #e67e22;">📸 Chụp thêm ảnh</button>
+        <input type="file" accept="image/*" capture="environment" onchange="uploadPhoto(this)" style="position: absolute; left: 0; top: 0; opacity: 0; width: 100%; height: 100%;">
       </div>
-      <div id="fileNameDisplay" style="font-size: 13px; color: #16a085; font-weight:bold; margin-bottom: 15px;"></div>
-      
-      <button class="btn btn-action" style="padding: 12px; font-size: 15px;" onclick="submitResult()">💾 LƯU KẾT QUẢ</button>
-      <div id="modalStatus" style="text-align: center; margin-top: 15px; font-size: 14px; font-weight: bold; color: #d35400;"></div>
+      <div id="uploadStatus" style="text-align:center; color: #d35400; font-size:13px; margin-top:5px;"></div>
+      <button class="btn" onclick="closeModal()" style="width: 100%; margin-top: 15px; background: #95a5a6;">Đóng</button>
     </div>
   </div>
 
   <script>
-    // DÁN URL CỦA GOOGLE APPS SCRIPT VÀO ĐÂY
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxjAAk3DMCXW_XeH1WeBhri2ukCYrFO3j6FlQLiwW8XD2I2K2PQvpjTkdeXi7HsZW7u6w/exec";
-    
     let allData = [];
     let currentRowIndex = null;
 
-    document.addEventListener("DOMContentLoaded", loadData);
-
-    // Xử lý hiển thị tên file khi chọn ảnh
-    document.getElementById('modalImage').addEventListener('change', function() {
-      if(this.files[0]) {
-        document.getElementById('fileNameDisplay').innerText = "✔️ Đã chọn ảnh: " + this.files[0].name;
-      } else {
-        document.getElementById('fileNameDisplay').innerText = "";
-      }
-    });
-
-    function loadData() {
-      fetch(WEB_APP_URL)
-        .then(res => res.json())
-        .then(response => {
-          if (response.success) {
-            allData = response.data;
-            populateFilter(allData);
-            renderData(allData);
-          } else {
-            alert("Lỗi tải dữ liệu: " + response.error);
-          }
-        })
-        .catch(err => {
-          document.getElementById('loader').innerText = "❌ Lỗi kết nối. Vui lòng kiểm tra lại đường dẫn.";
-        });
-    }
-
-    // Nạp danh sách vào Dropdown
-    function populateFilter(data) {
-      const select = document.getElementById('filterSection');
-      const uniqueSections = [...new Set(data.map(item => item.phanKiemTra))];
-      uniqueSections.forEach(section => {
-        if(section) {
-          const option = document.createElement('option');
-          option.value = section;
-          option.innerText = section;
-          select.appendChild(option);
+    async function loadData() {
+      const res = await fetch(WEB_APP_URL);
+      const response = await res.json();
+      if (response.success) {
+        allData = response.data;
+        if (document.getElementById('filterSection').options.length === 1) {
+          const sections = [...new Set(allData.map(d => d.phanKiemTra))];
+          sections.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = opt.text = s;
+            document.getElementById('filterSection').appendChild(opt);
+          });
         }
-      });
+        filterData();
+      }
     }
 
-    // Lọc dữ liệu theo Dropdown
     function filterData() {
-      const selected = document.getElementById('filterSection').value;
-      if (selected === "ALL") {
-        renderData(allData);
-      } else {
-        const filtered = allData.filter(r => r.phanKiemTra === selected);
-        renderData(filtered);
-      }
+      const val = document.getElementById('filterSection').value;
+      const data = val === 'ALL' ? allData : allData.filter(d => d.phanKiemTra === val);
+      render(data);
     }
 
-    // Chuyển link Drive thành link Direct để hiện ảnh (Cập nhật vượt tường lửa Google)
-    function convertToDirectLink(url) {
+    function convertLink(url) {
       if(!url) return "";
-      let fileId = "";
-      if (url.includes('/d/')) {
-        fileId = url.split('/d/')[1].split('/')[0];
-      } else if (url.includes('id=')) {
-        fileId = url.split('id=')[1].split('&')[0];
-      }
-      
-      // Sử dụng endpoint Thumbnail của Google để ép hiển thị ảnh (sz=w1000 là kích thước ảnh lớn)
-      return fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000` : url;
+      const id = url.split('/d/')[1]?.split('/')[0] || url.split('id=')[1]?.split('&')[0];
+      return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w1000` : url;
     }
 
-    // Phóng to ảnh
-    function showLightbox(src) {
-      document.getElementById('lightbox-img').src = src;
-      document.getElementById('lightbox').style.display = 'flex';
-    }
-
-    // Mở cửa sổ nhập liệu
-    function openModal(rowIndex) {
-      currentRowIndex = rowIndex;
-      const rowData = allData.find(r => r.rowIndex === rowIndex);
-      document.getElementById('modalKetQua').value = rowData.ketQua || '';
-      document.getElementById('modalImage').value = '';
-      document.getElementById('fileNameDisplay').innerText = '';
-      document.getElementById('modalStatus').innerText = '';
-      document.getElementById('resultModal').style.display = "block";
-    }
-
-    function closeModal() {
-      document.getElementById('resultModal').style.display = "none";
-    }
-
-    // Lưu kết quả lên Google Sheet
-    function submitResult() {
-      const ketQua = document.getElementById('modalKetQua').value.trim();
-      const fileInput = document.getElementById('modalImage');
-      const file = fileInput.files[0];
-      const statusDiv = document.getElementById('modalStatus');
-      
-      statusDiv.innerText = "⏳ Đang đồng bộ lên máy chủ...";
-      
-      const payload = { rowIndex: currentRowIndex, ketQua: ketQua };
-
-      if (file) {
-        statusDiv.innerText = "⏳ Đang tải ảnh và lưu kết quả...";
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          payload.base64 = e.target.result.split(',')[1];
-          payload.mimeType = file.type;
-          payload.fileName = `Audit_${currentRowIndex}_${new Date().getTime()}.${file.name.split('.').pop()}`;
-          sendPostRequest(payload);
-        };
-        reader.readAsDataURL(file);
-      } else {
-        sendPostRequest(payload);
-      }
-    }
-
-    function sendPostRequest(payload) {
-      fetch(WEB_APP_URL, { method: 'POST', body: JSON.stringify(payload) })
-      .then(res => res.json())
-      .then(res => {
-        if(res.success) {
-          document.getElementById('modalStatus').innerText = "✅ Đã lưu thành công!";
-          // Cập nhật lại mảng dữ liệu cục bộ
-          const row = allData.find(r => r.rowIndex === currentRowIndex);
-          row.ketQua = payload.ketQua;
-          if(res.imageUrl) row.hinhAnh = res.imageUrl;
-          
-          setTimeout(() => {
-            closeModal();
-            filterData(); // Vẽ lại giao diện
-          }, 1000);
-        } else {
-          document.getElementById('modalStatus').innerText = "❌ Lỗi: " + res.error;
-        }
-      }).catch(err => {
-        document.getElementById('modalStatus').innerText = "❌ Lỗi kết nối mạng!";
-      });
-    }
-
-    // Vẽ giao diện
-    function renderData(data) {
+    function render(data) {
       document.getElementById('loader').style.display = 'none';
       const tbody = document.querySelector('#dataTable tbody');
-      const cardContainer = document.getElementById('dataCards');
-      tbody.innerHTML = '';
-      cardContainer.innerHTML = '';
-      
-      data.forEach(row => {
-        const directImgUrl = convertToDirectLink(row.hinhAnh);
-        const imgHtml = directImgUrl 
-          ? `<img src="${directImgUrl}" class="img-preview" onclick="showLightbox('${directImgUrl}')" title="Bấm để phóng to">` 
-          : `<span class="empty-img">Chưa có ảnh</span>`;
-        
-        const actionBtn = `<button class="btn btn-action" onclick="openModal(${row.rowIndex})">📝 Nhập Kết quả</button>`;
+      const cards = document.getElementById('dataCards');
+      tbody.innerHTML = cards.innerHTML = '';
 
-        // BẢNG LAPTOP
+      data.forEach(row => {
+        const imgTags = row.hinhAnh.map(link => `<img src="${convertLink(link)}" class="img-preview" onclick="window.open('${link}')">`).join('');
+        
+        // Render Table
         const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td><b>${row.stt}</b></td>
-          <td>${row.phanKiemTra}</td>
-          <td>${row.mucKiemTra}<br><br><small style="color:#7f8c8d"><i>Căn cứ: ${row.canCu}</i></small></td>
-          <td style="text-align:center;">
-            <div style="margin-bottom:10px; font-weight:bold; color:#d35400;">${row.ketQua || '---'}</div>
-            ${actionBtn}
-          </td>
-          <td style="text-align:center; vertical-align:middle;">${imgHtml}</td>
-        `;
+        tr.innerHTML = `<td>${row.stt}</td><td>${row.mucKiemTra}</td>
+          <td><button class="btn" onclick="openModal(${row.rowIndex})">${row.ketQua || 'Nhập'}</button></td>
+          <td>${imgTags}</td>`;
         tbody.appendChild(tr);
 
-        // THẺ ĐIỆN THOẠI
+        // Render Cards
         const card = document.createElement('div');
         card.className = 'card';
-        card.innerHTML = `
-          <div class="card-tag">Mục ${row.stt}</div>
-          <div class="card-item"><strong>Phần:</strong> <span>${row.phanKiemTra}</span></div>
-          <div class="card-item"><strong>Nội dung:</strong> <span>${row.mucKiemTra}</span></div>
-          <div class="card-item">
-            <strong>Kết quả:</strong> <span style="color:#d35400; font-weight:bold;">${row.ketQua || '---'}</span>
-          </div>
-          <div style="border-top: 1px dashed #ddd; margin: 15px 0; padding-top: 15px; display:flex; justify-content: space-between; align-items:center;">
-            <div style="flex:1;">${actionBtn}</div>
-            <div style="margin-left: 15px;">${imgHtml}</div>
-          </div>
-        `;
-        cardContainer.appendChild(card);
+        card.innerHTML = `<b>Mục ${row.stt}</b><p>${row.mucKiemTra}</p>
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <button class="btn" onclick="openModal(${row.rowIndex})">📝 ${row.ketQua || 'Nhập kết quả'}</button>
+            <div>${imgTags}</div>
+          </div>`;
+        cards.appendChild(card);
       });
     }
+
+    function openModal(idx) {
+      currentRowIndex = idx;
+      const row = allData.find(r => r.rowIndex === idx);
+      document.getElementById('modalStt').innerText = row.stt;
+      document.getElementById('modalKetQua').value = row.ketQua || '';
+      refreshPhotoGrid(row.hinhAnh);
+      document.getElementById('resultModal').style.display = 'block';
+    }
+
+    function refreshPhotoGrid(links) {
+      const grid = document.getElementById('modalPhotoGrid');
+      grid.innerHTML = links.map(link => `
+        <div class="photo-item">
+          <img src="${convertLink(link)}">
+          <button class="btn-del" onclick="deletePhoto('${link}')">X</button>
+        </div>
+      `).join('');
+    }
+
+    async function updateTextOnly() {
+      const val = document.getElementById('modalKetQua').value;
+      const res = await fetch(WEB_APP_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'update_text', rowIndex: currentRowIndex, ketQua: val })
+      });
+      const data = await res.json();
+      if(data.success) {
+        allData.find(r => r.rowIndex === currentRowIndex).ketQua = val;
+        filterData();
+        alert("Đã lưu chữ!");
+      }
+    }
+
+    async function uploadPhoto(input) {
+      const file = input.files[0];
+      if(!file) return;
+      document.getElementById('uploadStatus').innerText = "⏳ Đang tải ảnh...";
+      
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const res = await fetch(WEB_APP_URL, {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'upload_image',
+            rowIndex: currentRowIndex,
+            base64: e.target.result.split(',')[1],
+            mimeType: file.type,
+            fileName: file.name
+          })
+        });
+        const data = await res.json();
+        if(data.success) {
+          allData.find(r => r.rowIndex === currentRowIndex).hinhAnh.push(data.imageUrl);
+          refreshPhotoGrid(allData.find(r => r.rowIndex === currentRowIndex).hinhAnh);
+          document.getElementById('uploadStatus').innerText = "✅ Xong!";
+          filterData();
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function deletePhoto(url) {
+      if(!confirm("Xoá ảnh này?")) return;
+      const res = await fetch(WEB_APP_URL, {
+        method: 'POST',
+        body: JSON.stringify({ action: 'delete_image', rowIndex: currentRowIndex, imageUrl: url })
+      });
+      const data = await res.json();
+      if(data.success) {
+        const row = allData.find(r => r.rowIndex === currentRowIndex);
+        row.hinhAnh = row.hinhAnh.filter(l => l !== url);
+        refreshPhotoGrid(row.hinhAnh);
+        filterData();
+      }
+    }
+
+    function exportToExcel() {
+      const exportData = allData.map(r => ({
+        "STT": r.stt,
+        "Phần": r.phanKiemTra,
+        "Nội dung kiểm tra": r.mucKiemTra,
+        "Căn cứ": r.canCu,
+        "Kết quả": r.ketQua,
+        "Link Hình ảnh": r.hinhAnh.join("\n")
+      }));
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "AuditData");
+      XLSX.writeFile(wb, `BaoCao_Audit_${new Date().toLocaleDateString()}.xlsx`);
+    }
+
+    function closeModal() { document.getElementById('resultModal').style.display = 'none'; }
+    window.onload = loadData;
   </script>
 </body>
 </html>
